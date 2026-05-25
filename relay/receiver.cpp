@@ -11,7 +11,7 @@
 
 RF24 radio(17, 0); // CE GPIO22, CSN CE0
 
-const byte address[6] = "NODE1";
+const uint8_t address[6] = "NODE1";
 
 // ======================================================
 // DATA STRUCT

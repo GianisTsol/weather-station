@@ -2,14 +2,14 @@
 
 The Raspberry Pi side of the weather station. Two processes, one responsibility each:
 
-- **`relay`** (C++) — listens on the nRF24L01 and writes incoming packets directly to a local SQLite database
+- **`receiver`** (C++) — listens on the nRF24L01 and writes incoming packets directly to a local SQLite database
 - **`sync`** (Python) — watches that database and uploads unsynced rows to the server API
 
 Splitting them this way means readings are never lost if the network is down — the C++ process keeps writing locally, and sync catches up whenever connectivity is restored.
 
 ---
 
-## relay (C++)
+## receiver (C++)
 
 Reads the nRF24L01 at 250kbps on channel 108, address `NODE1`. Each packet is a 16-byte struct:
 
@@ -26,12 +26,12 @@ Writes every packet to `sensor.db` with `uploaded = 0`.
 
 **Build:**
 ```bash
-g++ relay.cpp -o relay -lrf24 -lsqlite3
+g++ receiver.cpp -o receiver -lrf24 -lsqlite3
 ```
 
 **Run:**
 ```bash
-./relay
+./receiver
 ```
 
 ---
@@ -88,4 +88,4 @@ sudo systemctl enable weather-sync
 sudo systemctl start weather-sync
 ```
 
-Do the same for `relay` with `ExecStart=/home/pi/weather-station/relay/relay`.
+Do the same for `receiver` with `ExecStart=/home/pi/weather-station/relay/receiver`.
