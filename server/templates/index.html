@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Weather Station</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --border:   #21262d;
+      --accent:   #58a6ff;
+      --accent2:  #3fb950;
+      --warn:     #d29922;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --font-mono: 'IBM Plex Mono', monospace;
+      --font-sans: 'IBM Plex Sans', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+
+    header h1 {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+    }
+
+    #status {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    #status.ok::before  { content: "● "; color: var(--accent2); }
+    #status.err::before { content: "● "; color: #f85149; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+    }
+
+    .card .label {
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .card .value {
+      font-family: var(--font-mono);
+      font-size: 2rem;
+      font-weight: 600;
+      line-height: 1;
+    }
+
+    .card .unit {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-left: 0.2rem;
+    }
+
+    .card .timestamp {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+
+    .card.temp   .value { color: #ff7b72; }
+    .card.hum    .value { color: var(--accent); }
+    .card.press  .value { color: var(--accent2); }
+    .card.wind   .value { color: var(--warn); }
+
+    /* Chart area */
+    .chart-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .chart-section h2 {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    canvas { width: 100% !important; }
+
+    #no-data {
+      text-align: center;
+      padding: 4rem;
+      font-family: var(--font-mono);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>// weather station</h1>
+  <span id="status">connecting…</span>
+</header>
+
+<div class="grid">
+  <div class="card temp">
+    <div class="label">Temperature</div>
+    <div class="value" id="val-temp">—<span class="unit">°C</span></div>
+    <div class="timestamp" id="ts">—</div>
+  </div>
+  <div class="card hum">
+    <div class="label">Humidity</div>
+    <div class="value" id="val-hum">—<span class="unit">%</span></div>
+  </div>
+  <div class="card press">
+    <div class="label">Pressure</div>
+    <div class="value" id="val-press">—<span class="unit">hPa</span></div>
+  </div>
+  <div class="card wind">
+    <div class="label">Wind Speed</div>
+    <div class="value" id="val-wind">—<span class="unit">m/s</span></div>
+  </div>
+</div>
+
+<div class="chart-section">
+  <h2>Temperature — last 50 readings</h2>
+  <canvas id="chart-temp" height="120"></canvas>
+</div>
+
+<div class="chart-section">
+  <h2>Humidity — last 50 readings</h2>
+  <canvas id="chart-hum" height="120"></canvas>
+</div>
+
+<div id="no-data" style="display:none">No data yet. Waiting for the first reading from the station.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+  const POLL_INTERVAL = 30_000; // ms
+
+  const $ = id => document.getElementById(id);
+  const status = $("status");
+
+  // ── Chart setup ──────────────────────────────────────────
+  const chartDefaults = {
+    type: "line",
+    options: {
+      animation: false,
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { mode: "index" } },
+      scales: {
+        x: { ticks: { color: "#8b949e", font: { family: "IBM Plex Mono", size: 10 }, maxTicksLimit: 8 },
+              grid: { color: "#21262d" } },
+        y: { ticks: { color: "#8b949e", font: { family: "IBM Plex Mono", size: 10 } },
+              grid: { color: "#21262d" } }
+      }
+    }
+  };
+
+  function makeChart(id, color) {
+    return new Chart($(id), {
+      ...chartDefaults,
+      data: {
+        labels: [],
+        datasets: [{
+          data: [],
+          borderColor: color,
+          borderWidth: 2,
+          pointRadius: 2,
+          pointBackgroundColor: color,
+          fill: true,
+          backgroundColor: color + "18",
+          tension: 0.3
+        }]
+      }
+    });
+  }
+
+  const tempChart = makeChart("chart-temp", "#ff7b72");
+  const humChart  = makeChart("chart-hum",  "#58a6ff");
+
+  // ── Helpers ───────────────────────────────────────────────
+  function fmt(val, digits = 1) {
+    return val != null ? Number(val).toFixed(digits) : "—";
+  }
+
+  function shortTime(iso) {
+    const d = new Date(iso + "Z"); // UTC → local
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function updateChart(chart, rows, key) {
+    const pts = [...rows].reverse(); // oldest first
+    chart.data.labels = pts.map(r => shortTime(r.timestamp));
+    chart.data.datasets[0].data = pts.map(r => r[key]);
+    chart.update();
+  }
+
+  // ── Fetch latest ──────────────────────────────────────────
+  function fetchLatest() {
+    fetch("/api/latest")
+      .then(r => r.json())
+      .then(d => {
+        if (!d || !d.temperature) return;
+        $("val-temp").innerHTML = `${fmt(d.temperature)}<span class="unit">°C</span>`;
+        $("val-hum").innerHTML  = `${fmt(d.humidity)}<span class="unit">%</span>`;
+        $("val-press").innerHTML = d.pressure
+          ? `${fmt(d.pressure, 0)}<span class="unit">hPa</span>` : `—`;
+        $("val-wind").innerHTML  = d.wind_speed
+          ? `${fmt(d.wind_speed)}<span class="unit">m/s</span>` : `—`;
+        $("ts").textContent = "updated " + shortTime(d.timestamp);
+        status.textContent = "live";
+        status.className = "ok";
+      })
+      .catch(() => {
+        status.textContent = "offline";
+        status.className = "err";
+      });
+  }
+
+  // ── Fetch history ─────────────────────────────────────────
+  function fetchHistory() {
+    fetch("/api/history?limit=50")
+      .then(r => r.json())
+      .then(rows => {
+        if (!rows.length) {
+          $("no-data").style.display = "block";
+          return;
+        }
+        $("no-data").style.display = "none";
+        updateChart(tempChart, rows, "temperature");
+        updateChart(humChart,  rows, "humidity");
+      });
+  }
+
+  // ── Poll ──────────────────────────────────────────────────
+  fetchLatest();
+  fetchHistory();
+  setInterval(fetchLatest,  POLL_INTERVAL);
+  setInterval(fetchHistory, POLL_INTERVAL * 2);
+</script>
+
+</body>
+</html>
