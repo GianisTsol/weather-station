@@ -223,8 +223,9 @@
     return val != null ? Number(val).toFixed(digits) : "—";
   }
 
-  function shortTime(iso) {
-    const d = new Date(iso + "Z"); // UTC → local
+  function shortTime(ts) {
+    // ts can be a Unix integer (from C++ relay) or an ISO string (from Flask fallback)
+    const d = typeof ts === "number" ? new Date(ts * 1000) : new Date(ts + "Z");
     return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
@@ -237,7 +238,7 @@
 
   // ── Fetch latest ──────────────────────────────────────────
   function fetchLatest() {
-    fetch("api/latest")
+    fetch("/api/latest")
       .then(r => r.json())
       .then(d => {
         if (!d || !d.temperature) return;
@@ -259,7 +260,7 @@
 
   // ── Fetch history ─────────────────────────────────────────
   function fetchHistory() {
-    fetch("api/history?limit=50")
+    fetch("/api/history?limit=50")
       .then(r => r.json())
       .then(rows => {
         if (!rows.length) {
