@@ -2,12 +2,12 @@ import os
 import sqlite3
 from datetime import datetime
 from functools import wraps
-from flask import Flask, request, jsonify, render_template, g
+from flask import Flask, Blueprint, request, jsonify, render_template, g
 
 app = Flask(__name__)
 
 DATABASE = "weather.db"
-API_KEY = os.environ.get("WEATHER_API_KEY", "changeme")
+API_KEY  = os.environ.get("WEATHER_API_KEY", "changeme")
 
 
 # ---------- DB helpers ----------
@@ -45,17 +45,17 @@ def require_api_key(f):
     return decorated
 
 
-# ---------- Routes ----------
+# ---------- Blueprint ----------
 
-@app.route("/")
+bp = Blueprint("weather", __name__, url_prefix="/weather")
+
+@bp.route("/")
 def index():
     return render_template("index.html")
 
-
-@app.route("/api/data", methods=["POST"])
+@bp.route("/api/data", methods=["POST"])
 @require_api_key
 def ingest():
-    """RPi posts sensor readings here."""
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Invalid JSON"}), 400
@@ -66,23 +66,21 @@ def ingest():
 
     db = get_db()
     db.execute(
-        """INSERT INTO readings (temperature, humidity, pressure, wind_speed, timestamp)
-           VALUES (?, ?, ?, ?, ?)""",
+        "INSERT INTO readings (temperature, humidity, pressure, bat_voltage, timestamp) "
+        "VALUES (?, ?, ?, ?, ?)",
         (
             data["temperature"],
             data["humidity"],
             data.get("pressure"),
-            data.get("wind_speed"),
-            datetime.utcnow().isoformat(),
+            data.get("bat_voltage"),
+            data.get("timestamp") or datetime.utcnow().isoformat(),
         ),
     )
     db.commit()
     return jsonify({"status": "ok"}), 201
 
-
-@app.route("/api/latest")
+@bp.route("/api/latest")
 def latest():
-    """Most recent reading."""
     row = get_db().execute(
         "SELECT * FROM readings ORDER BY id DESC LIMIT 1"
     ).fetchone()
@@ -90,15 +88,16 @@ def latest():
         return jsonify({}), 204
     return jsonify(dict(row))
 
-
-@app.route("/api/history")
+@bp.route("/api/history")
 def history():
-    """Last N readings (default 100). Pass ?limit=N to override."""
     limit = min(int(request.args.get("limit", 100)), 1000)
     rows = get_db().execute(
         "SELECT * FROM readings ORDER BY id DESC LIMIT ?", (limit,)
     ).fetchall()
     return jsonify([dict(r) for r in rows])
+
+
+app.register_blueprint(bp)
 
 
 # ---------- Entry point ----------
