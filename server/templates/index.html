@@ -235,9 +235,9 @@
     });
   }
 
-  const tempChart = makeChart("chart-temp", "#ff7b72", { suggestedMin: -10, suggestedMax: 50 });
-  const humChart  = makeChart("chart-hum",  "#58a6ff", { suggestedMin: 0,   suggestedMax: 100 });
-  const batChart  = makeChart("chart-bat",  "#d29922", { suggestedMin: 3.0, suggestedMax: 4.5 });
+  const tempChart = makeChart("chart-temp", "#ff7b72", { grace: "10%" });
+  const humChart  = makeChart("chart-hum",  "#58a6ff", { grace: "10%" });
+  const batChart  = makeChart("chart-bat",  "#d29922", { grace: "10%" });
 
   // ── Helpers ───────────────────────────────────────────────
   function fmt(val, digits = 1) {

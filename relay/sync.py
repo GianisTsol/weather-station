@@ -57,16 +57,21 @@ def upload(row: dict) -> bool:
 
 def main():
     print(f"[sync] watching {DB_PATH}, polling every {POLL_INTERVAL}s")
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 
     while True:
-        pending = get_pending(conn)
-
-        if pending:
-            print(f"[sync] {len(pending)} pending row(s)")
-            for row in pending:
-                if upload(row):
-                    mark_uploaded(conn, row["id"])
+        try:
+            conn = sqlite3.connect(DB_PATH, timeout=10)
+            try:
+                pending = get_pending(conn)
+                if pending:
+                    print(f"[sync] {len(pending)} pending row(s)")
+                    for row in pending:
+                        if upload(row):
+                            mark_uploaded(conn, row["id"])
+            finally:
+                conn.close()
+        except Exception as e:
+            print(f"[sync] error: {e}")
 
         time.sleep(POLL_INTERVAL)
 
