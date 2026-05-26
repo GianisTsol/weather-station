@@ -237,7 +237,7 @@
 
   // ── Fetch latest ──────────────────────────────────────────
   function fetchLatest() {
-    fetch("weather/api/latest")
+    fetch("api/latest")
       .then(r => r.json())
       .then(d => {
         if (!d || !d.temperature) return;
@@ -259,7 +259,7 @@
 
   // ── Fetch history ─────────────────────────────────────────
   function fetchHistory() {
-    fetch("weather/api/history?limit=50")
+    fetch("api/history?limit=50")
       .then(r => r.json())
       .then(rows => {
         if (!rows.length) {
