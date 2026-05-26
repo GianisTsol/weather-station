@@ -237,8 +237,10 @@
   }
 
   // ── Fetch latest ──────────────────────────────────────────
+  const BASE = "/weather";
+
   function fetchLatest() {
-    fetch("/api/latest")
+    fetch(`${BASE}/api/latest`)
       .then(r => r.json())
       .then(d => {
         if (!d || !d.temperature) return;
@@ -260,7 +262,7 @@
 
   // ── Fetch history ─────────────────────────────────────────
   function fetchHistory() {
-    fetch("/api/history?limit=50")
+    fetch(`${BASE}/api/history?limit=50`)
       .then(r => r.json())
       .then(rows => {
         if (!rows.length) {
