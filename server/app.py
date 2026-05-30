@@ -3,10 +3,13 @@ import sqlite3
 from datetime import datetime
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, g
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 app = Flask(__name__)
 app.config["APPLICATION_ROOT"] = os.environ.get("APP_ROOT", "/")
+
+app.wsgi_app = ProxyFix(app.wsgi_app, x_prefix=1)
 
 DATABASE = "weather.db"
 API_KEY  = os.environ.get("WEATHER_API_KEY", "changeme")
