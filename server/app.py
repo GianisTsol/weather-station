@@ -47,9 +47,10 @@ def require_api_key(f):
 
 # ---------- Blueprint ----------
 
-bp = Blueprint("weather", __name__, url_prefix="/weather")
+bp = Blueprint("weather", __name__)
 
 @bp.route("/")
+@bp.route("")
 def index():
     return render_template("index.html")
 
@@ -73,7 +74,7 @@ def ingest():
             data["humidity"],
             data.get("pressure"),
             data.get("bat_voltage"),
-            data.get("timestamp") or datetime.utcnow().isoformat(),
+            data.get("timestamp") or int(datetime.utcnow().timestamp()),
         ),
     )
     db.commit()
@@ -90,10 +91,28 @@ def latest():
 
 @bp.route("/api/history")
 def history():
-    limit = min(int(request.args.get("limit", 100)), 1000)
+    since    = int(request.args.get("since",    0))
+    interval = int(request.args.get("interval", 60))
+
+    # clamp interval to something sane
+    interval = max(60, min(interval, 86400))
+
     rows = get_db().execute(
-        "SELECT * FROM readings ORDER BY id DESC LIMIT ?", (limit,)
+        """
+        SELECT
+            (timestamp / :interval) * :interval AS timestamp,
+            AVG(temperature)  AS temperature,
+            AVG(humidity)     AS humidity,
+            AVG(pressure)     AS pressure,
+            AVG(bat_voltage)  AS bat_voltage
+        FROM readings
+        WHERE timestamp >= :since
+        GROUP BY timestamp / :interval
+        ORDER BY timestamp ASC
+        """,
+        {"interval": interval, "since": since}
     ).fetchall()
+
     return jsonify([dict(r) for r in rows])
 
 

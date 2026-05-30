@@ -113,14 +113,40 @@
       margin-bottom: 1rem;
     }
 
-    .chart-section h2 {
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .chart-header h2 {
       font-family: var(--font-mono);
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--muted);
-      margin-bottom: 1rem;
     }
+
+    .range-btns {
+      display: flex;
+      gap: 0.25rem;
+    }
+
+    .range-btns button {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .range-btns button:hover  { border-color: var(--accent); color: var(--accent); }
+    .range-btns button.active { border-color: var(--accent); color: var(--accent); background: var(--accent)18; }
 
     canvas { width: 100% !important; }
 
@@ -161,17 +187,26 @@
 </div>
 
 <div class="chart-section">
-  <h2>Temperature — last 50 readings</h2>
+  <div class="chart-header">
+    <h2>Temperature</h2>
+    <div class="range-btns" data-chart="temp"></div>
+  </div>
   <canvas id="chart-temp" height="100"></canvas>
 </div>
 
 <div class="chart-section">
-  <h2>Humidity — last 50 readings</h2>
+  <div class="chart-header">
+    <h2>Humidity</h2>
+    <div class="range-btns" data-chart="hum"></div>
+  </div>
   <canvas id="chart-hum" height="100"></canvas>
 </div>
 
 <div class="chart-section">
-  <h2>Battery Voltage — last 50 readings</h2>
+  <div class="chart-header">
+    <h2>Battery Voltage</h2>
+    <div class="range-btns" data-chart="bat"></div>
+  </div>
   <canvas id="chart-bat" height="100"></canvas>
 </div>
 
@@ -179,18 +214,39 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
-  const POLL_INTERVAL = 30_000;
-  const BASE = "/weather";
+  const POLL_INTERVAL  = 30_000; // ms
+  const DATA_INTERVAL  = 60;     // seconds between readings from the station
+  const BASE           = "/weather";
+
+  // Range definitions: label → seconds of history
+  const RANGES = [
+    { label: "1H",  seconds: 3600 },
+    { label: "6H",  seconds: 21600 },
+    { label: "1D",  seconds: 86400 },
+    { label: "1W",  seconds: 604800 },
+    { label: "1M",  seconds: 2592000 },
+  ];
+  const DEFAULT_RANGE = "1H";
 
   const $ = id => document.getElementById(id);
   const status = $("status");
 
   // ── Timestamp ─────────────────────────────────────────────
   function parseTs(ts) {
-    // could be: Unix int, Unix int as string, or ISO string
     const n = Number(ts);
-    if (!isNaN(n) && n > 1_000_000_000) return new Date(n * 1000); // Unix seconds
-    return new Date(String(ts).includes("Z") ? ts : ts + "Z");     // ISO string
+    if (!isNaN(n) && n > 1_000_000_000) return new Date(n * 1000);
+    return new Date(String(ts).includes("Z") ? ts : ts + "Z");
+  }
+
+  function fmtLabel(ts, rangeSecs) {
+    const d = parseTs(ts);
+    if (isNaN(d)) return "—";
+    // show date+time for ranges > 1 day, just time otherwise
+    if (rangeSecs > 86400) {
+      return d.toLocaleDateString([], { month: "short", day: "numeric" })
+           + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
   function shortTime(ts) {
@@ -200,7 +256,7 @@
   }
 
   // ── Charts ────────────────────────────────────────────────
-  function makeChart(id, color, yOptions = {}) {
+  function makeChart(id, color) {
     return new Chart($(id), {
       type: "line",
       data: {
@@ -228,26 +284,54 @@
           y: {
             ticks: { color: "#8b949e", font: { family: "IBM Plex Mono", size: 10 } },
             grid: { color: "#21262d" },
-            ...yOptions
+            grace: "10%"
           }
         }
       }
     });
   }
 
-  const tempChart = makeChart("chart-temp", "#ff7b72", { grace: "10%" });
-  const humChart  = makeChart("chart-hum",  "#58a6ff", { grace: "10%" });
-  const batChart  = makeChart("chart-bat",  "#d29922", { grace: "10%" });
+  const charts = {
+    temp: makeChart("chart-temp", "#ff7b72"),
+    hum:  makeChart("chart-hum",  "#58a6ff"),
+    bat:  makeChart("chart-bat",  "#d29922"),
+  };
+
+  const chartKeys = { temp: "temperature", hum: "humidity", bat: "bat_voltage" };
+
+  // active range per chart
+  const activeRange = { temp: DEFAULT_RANGE, hum: DEFAULT_RANGE, bat: DEFAULT_RANGE };
+
+  // ── Range buttons ─────────────────────────────────────────
+  document.querySelectorAll(".range-btns").forEach(container => {
+    const chartId = container.dataset.chart;
+    RANGES.forEach(r => {
+      const btn = document.createElement("button");
+      btn.textContent = r.label;
+      if (r.label === DEFAULT_RANGE) btn.classList.add("active");
+      btn.onclick = () => {
+        activeRange[chartId] = r.label;
+        container.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        fetchHistory(chartId);
+      };
+      container.appendChild(btn);
+    });
+  });
 
   // ── Helpers ───────────────────────────────────────────────
   function fmt(val, digits = 1) {
     return val != null ? Number(val).toFixed(digits) : "—";
   }
 
-  function updateChart(chart, rows, key) {
-    const pts = [...rows].reverse();
-    chart.data.labels = pts.map(r => shortTime(r.timestamp));
-    chart.data.datasets[0].data = pts.map(r => r[key]);
+  function updateChart(chartId, rows) {
+    const rangeSecs = RANGES.find(r => r.label === activeRange[chartId]).seconds;
+    // downsample if too many points (keep max ~300 points for performance)
+    const step = Math.max(1, Math.floor(rows.length / 300));
+    const pts  = [...rows].reverse().filter((_, i) => i % step === 0);
+    const chart = charts[chartId];
+    chart.data.labels = pts.map(r => fmtLabel(r.timestamp, rangeSecs));
+    chart.data.datasets[0].data = pts.map(r => r[chartKeys[chartId]]);
     chart.update();
   }
 
@@ -259,7 +343,7 @@
         if (!d || !d.temperature) return;
         $("val-temp").innerHTML  = `${fmt(d.temperature)}<span class="unit">°C</span>`;
         $("val-hum").innerHTML   = `${fmt(d.humidity)}<span class="unit">%</span>`;
-        $("val-press").innerHTML = d.pressure   != null ? `${fmt(d.pressure, 2)}<span class="unit">kPa</span>` : "—";
+        $("val-press").innerHTML = d.pressure    != null ? `${fmt(d.pressure, 2)}<span class="unit">kPa</span>` : "—";
         $("val-bat").innerHTML   = d.bat_voltage != null ? `${fmt(d.bat_voltage, 2)}<span class="unit">V</span>` : "—";
         $("ts").textContent = "updated " + shortTime(d.timestamp);
         status.textContent = "live";
@@ -271,16 +355,21 @@
       });
   }
 
-  function fetchHistory() {
-    fetch(`${BASE}/api/history?limit=50`)
-      .then(r => r.json())
-      .then(rows => {
-        if (!rows.length) { $("no-data").style.display = "block"; return; }
-        $("no-data").style.display = "none";
-        updateChart(tempChart, rows, "temperature");
-        updateChart(humChart,  rows, "humidity");
-        updateChart(batChart,  rows, "bat_voltage");
-      });
+  function fetchHistory(chartId = null) {
+    const targets = chartId ? [chartId] : Object.keys(charts);
+    targets.forEach(id => {
+      const rangeSecs = RANGES.find(r => r.label === activeRange[id]).seconds;
+      const since     = Math.floor(Date.now() / 1000) - rangeSecs;
+      // limit as a safety cap: range / interval + 10% headroom
+      const limit     = Math.ceil(rangeSecs / DATA_INTERVAL * 1.1);
+      fetch(`${BASE}/api/history?since=${since}&limit=${limit}`)
+        .then(r => r.json())
+        .then(rows => {
+          if (!rows.length) { $("no-data").style.display = "block"; return; }
+          $("no-data").style.display = "none";
+          updateChart(id, rows);
+        });
+    });
   }
 
   fetchLatest();
