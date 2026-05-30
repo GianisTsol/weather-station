@@ -147,7 +147,7 @@ targets.forEach(id => {
     const since     = Math.floor(Date.now() / 1000) - rangeSecs;
     // limit as a safety cap: range / interval + 10% headroom
     const limit     = Math.ceil(rangeSecs / DATA_INTERVAL * 1.1);
-    fetch(`${URL_HISTORY}?since=${since}&interval=${interval}`)
+    fetch(`${URL_HISTORY}?since=${since}&interval=${DATA_INTERVAL}`)
     .then(r => r.json())
     .then(rows => {
         if (!rows.length) { $("no-data").style.display = "block"; return; }
