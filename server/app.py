@@ -50,7 +50,6 @@ def require_api_key(f):
 bp = Blueprint("weather", __name__)
 
 @bp.route("/")
-@bp.route("")
 def index():
     return render_template("index.html")
 
