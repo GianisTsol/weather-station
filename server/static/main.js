@@ -77,16 +77,26 @@ return new Chart($(id), {
 }
 
 const charts = {
-temp: makeChart("chart-temp", "#ff7b72"),
-hum:  makeChart("chart-hum",  "#58a6ff"),
-bat:  makeChart("chart-bat",  "#d29922"),
+    temp: makeChart("chart-temp", "#ff7b72"),
+    hum:  makeChart("chart-hum",  "#58a6ff"),
+    press: makeChart("chart-press", "#a371f7"),
+    bat:  makeChart("chart-bat",  "#d29922"),
 };
 
-const chartKeys = { temp: "temperature", hum: "humidity", bat: "bat_voltage" };
 
+const chartKeys = {
+    temp: "temperature",
+    hum: "humidity",
+    press: "pressure",
+    bat: "bat_voltage"
+};
 // active range per chart
-const activeRange = { temp: DEFAULT_RANGE, hum: DEFAULT_RANGE, bat: DEFAULT_RANGE };
-
+const activeRange = {
+    temp: DEFAULT_RANGE,
+    hum: DEFAULT_RANGE,
+    press: DEFAULT_RANGE,
+    bat: DEFAULT_RANGE
+};
 // ── Range buttons ─────────────────────────────────────────
 document.querySelectorAll(".range-btns").forEach(container => {
 const chartId = container.dataset.chart;
@@ -125,7 +135,7 @@ function fetchLatest() {
 fetch(URL_LATEST)
     .then(r => r.json())
     .then(d => {
-    if (!d || !d.temperature) return;
+    if (!d || d.temperature == null) return;
     $("val-temp").innerHTML  = `${fmt(d.temperature)}<span class="unit">°C</span>`;
     $("val-hum").innerHTML   = `${fmt(d.humidity)}<span class="unit">%</span>`;
     $("val-press").innerHTML = d.pressure    != null ? `${fmt(d.pressure, 2)}<span class="unit">kPa</span>` : "—";
