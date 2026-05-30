@@ -113,7 +113,7 @@ function updateChart(chartId, rows) {
 const rangeSecs = RANGES.find(r => r.label === activeRange[chartId]).seconds;
 // downsample if too many points (keep max ~300 points for performance)
 const step = Math.max(1, Math.floor(rows.length / 300));
-const pts  = [...rows].reverse().filter((_, i) => i % step === 0);
+const pts  = [...rows].filter((_, i) => i % step === 0);
 const chart = charts[chartId];
 chart.data.labels = pts.map(r => fmtLabel(r.timestamp, rangeSecs));
 chart.data.datasets[0].data = pts.map(r => r[chartKeys[chartId]]);
@@ -147,7 +147,7 @@ targets.forEach(id => {
     const since     = Math.floor(Date.now() / 1000) - rangeSecs;
     // limit as a safety cap: range / interval + 10% headroom
     const limit     = Math.ceil(rangeSecs / DATA_INTERVAL * 1.1);
-    fetch(`${URL_HISTORY}?since=${since}&interval=${DATA_INTERVAL}`)
+    fetch(`${URL_HISTORY}?since=${since}&interval=${DATA_INTERVAL}&limit=${limit}`)
     .then(r => r.json())
     .then(rows => {
         if (!rows.length) { $("no-data").style.display = "block"; return; }
