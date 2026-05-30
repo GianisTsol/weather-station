@@ -2,9 +2,11 @@ import os
 import sqlite3
 from datetime import datetime
 from functools import wraps
-from flask import Flask, Blueprint, request, jsonify, render_template, g
+from flask import Flask, request, jsonify, render_template, g
+
 
 app = Flask(__name__)
+app.config["APPLICATION_ROOT"] = os.environ.get("APP_ROOT", "/")
 
 DATABASE = "weather.db"
 API_KEY  = os.environ.get("WEATHER_API_KEY", "changeme")
@@ -45,15 +47,13 @@ def require_api_key(f):
     return decorated
 
 
-# ---------- Blueprint ----------
+# ---------- Routes ----------
 
-bp = Blueprint("weather", __name__)
-
-@bp.route("/")
+@app.route("/")
 def index():
     return render_template("index.html")
 
-@bp.route("/api/data", methods=["POST"])
+@app.route("/api/data", methods=["POST"])
 @require_api_key
 def ingest():
     data = request.get_json(silent=True)
@@ -79,7 +79,7 @@ def ingest():
     db.commit()
     return jsonify({"status": "ok"}), 201
 
-@bp.route("/api/latest")
+@app.route("/api/latest")
 def latest():
     row = get_db().execute(
         "SELECT * FROM readings ORDER BY id DESC LIMIT 1"
@@ -88,12 +88,10 @@ def latest():
         return jsonify({}), 204
     return jsonify(dict(row))
 
-@bp.route("/api/history")
+@app.route("/api/history")
 def history():
     since    = int(request.args.get("since",    0))
     interval = int(request.args.get("interval", 60))
-
-    # clamp interval to something sane
     interval = max(60, min(interval, 86400))
 
     rows = get_db().execute(
@@ -115,12 +113,9 @@ def history():
     return jsonify([dict(r) for r in rows])
 
 
-app.register_blueprint(bp)
-
-
 # ---------- Entry point ----------
 
 if __name__ == "__main__":
     if not os.path.exists(DATABASE):
         init_db()
-    app.run(host="127.0.0.1", port=5000, threaded=True, debug=False)
+    app.run(host="127.0.0.1", port=5000)
