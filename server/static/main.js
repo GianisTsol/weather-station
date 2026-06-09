@@ -134,20 +134,23 @@ chart.update();
 function fetchLatest() {
 fetch(URL_LATEST)
     .then(r => r.json())
-    .then(d => {
+.then(d => {
     if (!d || d.temperature == null) return;
     $("val-temp").innerHTML  = `${fmt(d.temperature)}<span class="unit">°C</span>`;
     $("val-hum").innerHTML   = `${fmt(d.humidity)}<span class="unit">%</span>`;
     $("val-press").innerHTML = d.pressure    != null ? `${fmt(d.pressure, 2)}<span class="unit">kPa</span>` : "—";
     $("val-bat").innerHTML   = d.bat_voltage != null ? `${fmt(d.bat_voltage, 2)}<span class="unit">V</span>` : "—";
     $("ts").textContent = "updated " + shortTime(d.timestamp);
-    status.textContent = "live";
-    status.className = "ok";
-    })
-    .catch(() => {
-    status.textContent = "offline";
-    status.className = "err";
-    });
+
+    const ageSecs = (Date.now() - parseTs(d.timestamp).getTime()) / 1000;
+    if (ageSecs <= 300) {
+        status.textContent = "live";
+        status.className = "ok";
+    } else {
+        status.textContent = "stale";
+        status.className = "err";
+    }
+})
 }
 
 function fetchHistory(chartId = null) {
