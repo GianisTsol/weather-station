@@ -71,7 +71,7 @@ def upload(row: dict) -> bool:
 def verify_consistency():
     conn = sqlite3.connect(DB_PATH, timeout=10)
     
-    latest = get_last_id(conn)
+    latest = get_last_timestamp(conn)
     
     resp = requests.get(f"{API_URL}/latest")
     resp.raise_for_status()
