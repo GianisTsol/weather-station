@@ -86,7 +86,8 @@ def verify_consistency():
     if remote_latest == latest:
         print("Databases in sync")
     if remote_latest > latest:
-        print("How did we get here?")
+        n = latest - remote_latest
+        print(f"How did we get here? We are {n} readings behind")
 
 
 def main():
