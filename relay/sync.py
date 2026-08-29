@@ -81,7 +81,7 @@ def verify_consistency():
     if remote_latest < latest:
         n = latest - remote_latest
         cur = conn.execute("UPDATE readings SET uploaded = 0 WHERE timestamp > ?", (remote_latest,))
-        print(f"We are {n} seconds ahead! {cur.rowcount()} rows need to be pushed.")
+        print(f"We are {n} seconds ahead! {cur.rowcount} rows need to be pushed.")
         v = conn.commit()
 
     if remote_latest == latest:
