@@ -45,7 +45,7 @@ def mark_uploaded(conn, row_id: int):
 
 # ── API ───────────────────────────────────────────────────────────────────────
 
-+
+
 def upload(row: dict) -> bool:
     payload = {
         "temperature": row["temperature"],
