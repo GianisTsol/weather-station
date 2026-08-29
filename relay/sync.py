@@ -26,12 +26,26 @@ def get_pending(conn) -> list[dict]:
     cols = [c[0] for c in cur.description]
     return [dict(zip(cols, row)) for row in cur.fetchall()]
 
+def get_last_id(conn) -> list[dict]:
+    cur = conn.execute(
+        "SELECT id"
+        "FROM readings ORDER BY id ASC LIMIT 1"
+    )
+    cols = [c[0] for c in cur.description]
+    res = [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    if len(res) > 0:
+        return res[0]["id"]
+    else:
+        return 0
+
 def mark_uploaded(conn, row_id: int):
     conn.execute("UPDATE readings SET uploaded = 1 WHERE id = ?", (row_id,))
     conn.commit()
 
 # ── API ───────────────────────────────────────────────────────────────────────
 
++
 def upload(row: dict) -> bool:
     payload = {
         "temperature": row["temperature"],
@@ -56,12 +70,8 @@ def upload(row: dict) -> bool:
 
 def verify_consistency():
     conn = sqlite3.connect(DB_PATH, timeout=10)
-    cur = conn.execute("SELECT id FROM readings LIMIT 1")
-    r = cur.fetchall()
-    if len(r) == 0:
-        latest = 0
-    else:
-        latest = r[0]["id"]
+    
+    latest = get_last_id(conn)
     
     resp = requests.get(f"{API_URL}/latest")
     resp.raise_for_status()
