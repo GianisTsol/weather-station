@@ -71,17 +71,21 @@ def ingest():
         return jsonify({"error": f"Missing fields: {required - data.keys()}"}), 400
 
     db = get_db()
-    db.execute(
-        "INSERT INTO readings (temperature, humidity, pressure, bat_voltage, timestamp) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (
-            data["temperature"],
-            data["humidity"],
-            data.get("pressure"),
-            data.get("bat_voltage"),
-            data.get("timestamp") or int(datetime.utcnow().timestamp()),
-        ),
-    )
+    try:
+        db.execute(
+            "INSERT INTO readings (temperature, humidity, pressure, bat_voltage, timestamp) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (
+                data["temperature"],
+                data["humidity"],
+                data.get("pressure"),
+                data.get("bat_voltage"),
+                data.get("timestamp") or int(datetime.utcnow().timestamp()),
+            ),
+        )
+    except Exception as e:
+        print(f"Inserting {data}")
+        print(f"Error while inserting record: {e}")
     db.commit()
     return jsonify({"status": "ok"}), 201
 
