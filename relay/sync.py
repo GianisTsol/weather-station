@@ -56,21 +56,26 @@ def upload(row: dict) -> bool:
 
 def verify_consistency():
     conn = sqlite3.connect(DB_PATH, timeout=10)
-    latest = conn.execute("SELECT id FROM readings LIMIT 1")
+    cur = conn.execute("SELECT id FROM readings LIMIT 1")
+    r = cur.fetchall()
+    if len(r) == 0:
+        latest = 0
+    else:
+        latest = r[0]["id"]
     
     resp = requests.get(f"{API_URL}/latest")
     resp.raise_for_status()
 
-    remote_latest = resp.json()
+    remote_latest = resp.json()["id"]
 
-    if remote_latest["id"] < latest["id"]:
-        n = latest["id"] - remote_latest["id"]
+    if remote_latest < latest:
+        n = latest - remote_latest
         print("Found {n} not pushed rows.")
         conn.execute("UPDATE readings SET uploaded = 0 WHERE id > ?", (remote_latest["id"],))
         conn.commit()
-    if remote_latest["id"] == latest["id"]:
+    if remote_latest == latest:
         print("Databases in sync")
-    if remote_latest["id"] > latest["id"]:
+    if remote_latest > latest:
         print("How did we get here?")
 
 
