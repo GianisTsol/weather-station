@@ -26,16 +26,16 @@ def get_pending(conn) -> list[dict]:
     cols = [c[0] for c in cur.description]
     return [dict(zip(cols, row)) for row in cur.fetchall()]
 
-def get_last_id(conn) -> list[dict]:
+def get_last_timestamp(conn) -> list[dict]:
     cur = conn.execute(
-        "SELECT id "
+        "SELECT id, timestamp"
         "FROM readings ORDER BY id DESC LIMIT 1"
     )
     cols = [c[0] for c in cur.description]
     res = [dict(zip(cols, row)) for row in cur.fetchall()]
 
     if len(res) > 0:
-        return res[0]["id"]
+        return res[0]["timestamp"]
     else:
         return 0
 
@@ -76,18 +76,19 @@ def verify_consistency():
     resp = requests.get(f"{API_URL}/latest")
     resp.raise_for_status()
 
-    remote_latest = resp.json()["id"]
+    remote_latest = resp.json()["timestamp"]
     print(f"Lastest: {latest}, Remote: {remote_latest}")
     if remote_latest < latest:
         n = latest - remote_latest
-        print("Found {n} not pushed rows.")
-        conn.execute("UPDATE readings SET uploaded = 0 WHERE id > ?", (remote_latest["id"],))
-        conn.commit()
+        cur = conn.execute("UPDATE readings SET uploaded = 0 WHERE timestamp > ?", (remote_latest,))
+        print(f"We are {n} seconds ahead! {cur.rowcount()} rows need to be pushed.")
+        v = conn.commit()
+
     if remote_latest == latest:
         print("Databases in sync")
     if remote_latest > latest:
-        n = latest - remote_latest
-        print(f"How did we get here? We are {n} readings behind")
+        n = remote_latest
+        print(f"How did we get here? We are {n} seconds behind.")
 
 
 def main():
