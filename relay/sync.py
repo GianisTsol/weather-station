@@ -50,7 +50,8 @@ def upload(row: dict) -> bool:
         resp.raise_for_status()
         return True
     except requests.RequestException as e:
-        print(f"[sync] upload failed (id={row['id']}): {e}")
+        print(f"upload failed (id={row['id']}): {e}")
+        print(f"Payload: {[v for k, v in row.items()]}")
         return False
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
@@ -64,14 +65,14 @@ def main():
             try:
                 pending = get_pending(conn)
                 if pending:
-                    print(f"[sync] {len(pending)} pending row(s)")
+                    print(f"{len(pending)} pending row(s)")
                     for row in pending:
                         if upload(row):
                             mark_uploaded(conn, row["id"])
             finally:
                 conn.close()
         except Exception as e:
-            print(f"[sync] error: {e}")
+            print(e)
 
         time.sleep(POLL_INTERVAL)
 
