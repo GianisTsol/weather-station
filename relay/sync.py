@@ -76,7 +76,6 @@ def verify_consistency():
 
 def main():
     print(f"[sync] watching {DB_PATH}, polling every {POLL_INTERVAL}s")
-
     while True:
         try:
             conn = sqlite3.connect(DB_PATH, timeout=10)
@@ -96,6 +95,8 @@ def main():
 
 if __name__ == "__main__":
     try:
+        verify_consistency()
+
         main()
     except KeyboardInterrupt:
         print("\n[sync] stopped")
