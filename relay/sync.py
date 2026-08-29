@@ -12,7 +12,7 @@ import requests
 # ── Config ────────────────────────────────────────────────────────────────────
 
 DB_PATH      = os.environ.get("SENSOR_DB",       "sensor.db")
-API_URL      = os.environ.get("WEATHER_API_URL",  "https://yoursite.com/api/data")
+API_URL      = os.environ.get("WEATHER_API_URL",  "https://yoursite.com/api")
 API_KEY      = os.environ.get("WEATHER_API_KEY",  "changeme")
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", 30))   # seconds
 
@@ -42,7 +42,7 @@ def upload(row: dict) -> bool:
     }
     try:
         resp = requests.post(
-            API_URL,
+            f"{API_URL}/data",
             json=payload,
             headers={"X-API-Key": API_KEY},
             timeout=10,
@@ -54,7 +54,25 @@ def upload(row: dict) -> bool:
         print(f"Payload: {[v for k, v in row.items()]}")
         return False
 
-# ── Main loop ─────────────────────────────────────────────────────────────────
+def verify_consistency():
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    latest = conn.execute("SELECT id FROM readings LIMIT 1")
+    
+    resp = requests.get(f"{API_URL}/latest")
+    resp.raise_for_status()
+
+    remote_latest = resp.json()
+
+    if remote_latest["id"] < latest["id"]:
+        n = latest["id"] - remote_latest["id"]
+        print("Found {n} not pushed rows.")
+        conn.execute("UPDATE readings SET uploaded = 0 WHERE id > ?", (remote_latest["id"],))
+        conn.commit()
+    if remote_latest["id"] == latest["id"]:
+        print("Databases in sync")
+    if remote_latest["id"] > latest["id"]:
+        print("How did we get here?")
+
 
 def main():
     print(f"[sync] watching {DB_PATH}, polling every {POLL_INTERVAL}s")
