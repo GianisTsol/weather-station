@@ -77,7 +77,7 @@ def verify_consistency():
     resp.raise_for_status()
 
     remote_latest = resp.json()["id"]
-
+    print(f"Lastest: {latest}, Remote: {remote_latest}")
     if remote_latest < latest:
         n = latest - remote_latest
         print("Found {n} not pushed rows.")
