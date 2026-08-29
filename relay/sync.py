@@ -28,7 +28,7 @@ def get_pending(conn) -> list[dict]:
 
 def get_last_timestamp(conn) -> list[dict]:
     cur = conn.execute(
-        "SELECT id, timestamp"
+        "SELECT id, timestamp "
         "FROM readings ORDER BY id DESC LIMIT 1"
     )
     cols = [c[0] for c in cur.description]
@@ -89,7 +89,7 @@ def verify_consistency():
     if remote_latest > latest:
         n = remote_latest
         print(f"How did we get here? We are {n} seconds behind.")
-
+    conn.close()
 
 def main():
     print(f"[sync] watching {DB_PATH}, polling every {POLL_INTERVAL}s")
