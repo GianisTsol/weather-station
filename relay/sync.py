@@ -29,7 +29,7 @@ def get_pending(conn) -> list[dict]:
 def get_last_id(conn) -> list[dict]:
     cur = conn.execute(
         "SELECT id "
-        "FROM readings ORDER BY id ASC LIMIT 1"
+        "FROM readings ORDER BY id DESC LIMIT 1"
     )
     cols = [c[0] for c in cur.description]
     res = [dict(zip(cols, row)) for row in cur.fetchall()]
