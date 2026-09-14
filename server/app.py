@@ -1,10 +1,13 @@
+from dotenv import load_dotenv
 import os
+
 import sqlite3
 from datetime import datetime
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, g
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+load_dotenv()
 
 app = Flask(__name__)
 app.config["APPLICATION_ROOT"] = os.environ.get("APP_ROOT", "/")
