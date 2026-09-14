@@ -174,7 +174,7 @@ void setup()
     radio.setChannel(108);
 
     // Automatic retries / ACK
-    radio.setRetries(5, 15);
+    radio.setRetries(3, 5);
 
     // 16-bit CRC
     radio.setCRCLength(RF24_CRC_16);
@@ -257,12 +257,29 @@ void loop()
   // Allow NRF24 to wake up
   delayMicroseconds(1500);
 
+  // First attempt: LOW power
+  radio.setPALevel(RF24_PA_LOW);
+
   bool ok = radio.write(&data, sizeof(data));
 
   if (ok) {
-    DBG_PRINTLN("Send OK");
+    DBG_PRINTLN("Send OK (LOW)");
   } else {
-    DBG_PRINTLN("Send failed");
+    // LOW failed after automatic retries
+    DBG_PRINTLN("Send failed at LOW - retrying HIGH");
+
+    // Retry at higher TX power
+    radio.setPALevel(RF24_PA_HIGH);
+
+    delayMicroseconds(1500);
+
+    ok = radio.write(&data, sizeof(data));
+
+    if (ok) {
+      DBG_PRINTLN("Send OK (HIGH)");
+    } else {
+      DBG_PRINTLN("Send failed at HIGH");
+    }
   }
 
   // Radio off until next transmission
