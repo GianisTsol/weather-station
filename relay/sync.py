@@ -71,18 +71,18 @@ def upload(row: dict) -> bool:
 def verify_consistency():
     conn = sqlite3.connect(DB_PATH, timeout=10)
     
-    latest = get_last_timestamp(conn)
+    latest = int(get_last_timestamp(conn))
     
     resp = requests.get(f"{API_URL}/latest")
     resp.raise_for_status()
 
-    remote_latest = resp.json()["timestamp"]
+    remote_latest = int(resp.json()["timestamp"])
     print(f"Lastest: {latest}, Remote: {remote_latest}")
     if remote_latest < latest:
         n = latest - remote_latest
         cur = conn.execute("UPDATE readings SET uploaded = 0 WHERE timestamp > ?", (remote_latest,))
         print(f"We are {n} seconds ahead! {cur.rowcount} rows need to be pushed.")
-        v = conn.commit()
+        conn.commit()
 
     if remote_latest == latest:
         print("Databases in sync")
